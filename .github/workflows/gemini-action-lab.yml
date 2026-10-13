@@ -1,0 +1,348 @@
+name: 'Gemini Action Lab'
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  MARKER: /tmp/w2-mcpconf-action-marker.log
+
+jobs:
+  attack-action-redirect-merge:
+    if: github.event.pull_request.head.ref == 'action-ext-env-redirect'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: 'Checkout PR (default merge ref)'
+        uses: actions/checkout@v4
+      - name: 'Show untrusted payload present in workspace'
+        run: |
+          echo "--- .gemini/.env ---"; cat .gemini/.env || true
+          echo "--- .gemini/settings.json ---"; cat .gemini/settings.json || true
+          echo "--- gh-home tree ---"; find gh-home -maxdepth 4 || true
+      - name: 'setup node'
+        uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: 'Run Gemini CLI (official action, exact examples/pr-review shape)'
+        id: 'gemini'
+        uses: 'google-github-actions/run-gemini-cli@v0'
+        env:
+          GEMINI_CLI_TRUST_WORKSPACE: 'true'
+        with:
+          gemini_api_key: 'DUMMY_ACTION_KEY'
+          gemini_cli_version: '0.63.0'
+          workflow_name: 'gemini-review'
+          github_pr_number: '${{ github.event.pull_request.number }}'
+          upload_artifacts: 'true'
+          settings: |-
+            {
+              "model": {
+                "maxSessionTurns": 25
+              },
+              "telemetry": {
+                "enabled": true,
+                "target": "local",
+                "outfile": ".gemini/telemetry.log"
+              },
+              "mcpServers": {
+                "github": {
+                  "command": "docker",
+                  "args": [
+                    "run",
+                    "-i",
+                    "--rm",
+                    "-e",
+                    "GITHUB_PERSONAL_ACCESS_TOKEN",
+                    "ghcr.io/github/github-mcp-server:v0.27.0"
+                  ],
+                  "includeTools": [
+                    "add_comment_to_pending_review",
+                    "pull_request_read",
+                    "pull_request_review_write"
+                  ],
+                  "env": {
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+                  }
+                }
+              },
+              "tools": {
+                "core": []
+              }
+            }
+          extensions: |
+            [
+              "https://github.com/gemini-cli-extensions/code-review"
+            ]
+          prompt: '/pr-code-review'
+      - name: 'Collect runner-side markers'
+        if: always()
+        run: |
+          set +e
+          mkdir -p evidence
+          {
+            echo "run_id=${{ github.run_id }} attempt=${{ github.run_attempt }} job=${{ github.job }}"
+            echo "action_outcome=${{ steps.gemini.outcome }}"
+            id -un; hostname; pwd; date -u +%FT%TZ
+          } > evidence/context.txt
+          cp "$MARKER" evidence/marker.log 2>/dev/null || echo 'NO-MARKER-FILE' > evidence/marker.log
+          echo "--- marker ---"; cat evidence/marker.log
+          ls -la .gemini/ > evidence/workdir-gemini-ls.txt 2>&1
+          cat .gemini/settings.json > evidence/post-action-settings.json 2>&1
+          find gh-home -maxdepth 4 > evidence/redirect-home-tree.txt 2>&1 || true
+      - name: 'Upload lab evidence'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'attack-merge-${{ github.run_id }}-${{ github.run_attempt }}'
+          path: evidence/
+
+  attack-action-redirect-head:
+    if: github.event.pull_request.head.ref == 'action-ext-env-redirect'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: 'Checkout fork PR head explicitly'
+        uses: actions/checkout@v4
+        with:
+          repository: '${{ github.event.pull_request.head.repo.full_name }}'
+          ref: '${{ github.event.pull_request.head.ref }}'
+          persist-credentials: false
+      - name: 'setup node'
+        uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: 'Run Gemini CLI (official action, exact examples/pr-review shape)'
+        id: 'gemini'
+        uses: 'google-github-actions/run-gemini-cli@v0'
+        env:
+          GEMINI_CLI_TRUST_WORKSPACE: 'true'
+        with:
+          gemini_api_key: 'DUMMY_ACTION_KEY'
+          gemini_cli_version: '0.63.0'
+          workflow_name: 'gemini-review'
+          github_pr_number: '${{ github.event.pull_request.number }}'
+          upload_artifacts: 'true'
+          settings: |-
+            {
+              "model": {
+                "maxSessionTurns": 25
+              },
+              "telemetry": {
+                "enabled": true,
+                "target": "local",
+                "outfile": ".gemini/telemetry.log"
+              },
+              "mcpServers": {
+                "github": {
+                  "command": "docker",
+                  "args": [
+                    "run",
+                    "-i",
+                    "--rm",
+                    "-e",
+                    "GITHUB_PERSONAL_ACCESS_TOKEN",
+                    "ghcr.io/github/github-mcp-server:v0.27.0"
+                  ],
+                  "includeTools": [
+                    "add_comment_to_pending_review",
+                    "pull_request_read",
+                    "pull_request_review_write"
+                  ],
+                  "env": {
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+                  }
+                }
+              },
+              "tools": {
+                "core": []
+              }
+            }
+          extensions: |
+            [
+              "https://github.com/gemini-cli-extensions/code-review"
+            ]
+          prompt: '/pr-code-review'
+      - name: 'Collect runner-side markers'
+        if: always()
+        run: |
+          set +e
+          mkdir -p evidence
+          {
+            echo "run_id=${{ github.run_id }} attempt=${{ github.run_attempt }} job=${{ github.job }}"
+            echo "action_outcome=${{ steps.gemini.outcome }}"
+            id -un; hostname; pwd; date -u +%FT%TZ
+          } > evidence/context.txt
+          cp "$MARKER" evidence/marker.log 2>/dev/null || echo 'NO-MARKER-FILE' > evidence/marker.log
+          echo "--- marker ---"; cat evidence/marker.log
+          ls -la .gemini/ > evidence/workdir-gemini-ls.txt 2>&1
+          cat .gemini/settings.json > evidence/post-action-settings.json 2>&1
+          find gh-home -maxdepth 4 > evidence/redirect-home-tree.txt 2>&1 || true
+      - name: 'Upload lab evidence'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'attack-head-${{ github.run_id }}-${{ github.run_attempt }}'
+          path: evidence/
+
+  control-no-redirect:
+    if: github.event.pull_request.head.ref == 'action-no-redirect'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: 'Checkout PR (default merge ref)'
+        uses: actions/checkout@v4
+      - name: 'setup node'
+        uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: 'Run Gemini CLI (official action, exact examples/pr-review shape)'
+        id: 'gemini'
+        uses: 'google-github-actions/run-gemini-cli@v0'
+        env:
+          GEMINI_CLI_TRUST_WORKSPACE: 'true'
+        with:
+          gemini_api_key: 'DUMMY_ACTION_KEY'
+          gemini_cli_version: '0.63.0'
+          workflow_name: 'gemini-review'
+          github_pr_number: '${{ github.event.pull_request.number }}'
+          upload_artifacts: 'true'
+          settings: |-
+            {
+              "model": {
+                "maxSessionTurns": 25
+              },
+              "telemetry": {
+                "enabled": true,
+                "target": "local",
+                "outfile": ".gemini/telemetry.log"
+              },
+              "mcpServers": {
+                "github": {
+                  "command": "docker",
+                  "args": [
+                    "run",
+                    "-i",
+                    "--rm",
+                    "-e",
+                    "GITHUB_PERSONAL_ACCESS_TOKEN",
+                    "ghcr.io/github/github-mcp-server:v0.27.0"
+                  ],
+                  "includeTools": [
+                    "add_comment_to_pending_review",
+                    "pull_request_read",
+                    "pull_request_review_write"
+                  ],
+                  "env": {
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+                  }
+                }
+              },
+              "tools": {
+                "core": []
+              }
+            }
+          extensions: |
+            [
+              "https://github.com/gemini-cli-extensions/code-review"
+            ]
+          prompt: '/pr-code-review'
+      - name: 'Collect runner-side markers'
+        if: always()
+        run: |
+          set +e
+          mkdir -p evidence
+          {
+            echo "run_id=${{ github.run_id }} attempt=${{ github.run_attempt }} job=${{ github.job }}"
+            echo "action_outcome=${{ steps.gemini.outcome }}"
+            id -un; hostname; pwd; date -u +%FT%TZ
+          } > evidence/context.txt
+          cp "$MARKER" evidence/marker.log 2>/dev/null || echo 'NO-MARKER-FILE' > evidence/marker.log
+          echo "--- marker ---"; cat evidence/marker.log
+          ls -la .gemini/ > evidence/workdir-gemini-ls.txt 2>&1
+          cat .gemini/settings.json > evidence/post-action-settings.json 2>&1
+          find gh-home -maxdepth 4 > evidence/redirect-home-tree.txt 2>&1 || true
+      - name: 'Upload lab evidence'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'control-no-redirect-${{ github.run_id }}-${{ github.run_attempt }}'
+          path: evidence/
+
+  control-untrusted:
+    if: github.event.pull_request.head.ref == 'action-ext-env-redirect'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: 'Checkout PR (default merge ref)'
+        uses: actions/checkout@v4
+      - name: 'setup node'
+        uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: 'Run Gemini CLI (official action, trust env NOT set)'
+        id: 'gemini'
+        uses: 'google-github-actions/run-gemini-cli@v0'
+        with:
+          gemini_api_key: 'DUMMY_ACTION_KEY'
+          gemini_cli_version: '0.63.0'
+          workflow_name: 'gemini-review'
+          github_pr_number: '${{ github.event.pull_request.number }}'
+          upload_artifacts: 'true'
+          settings: |-
+            {
+              "model": {
+                "maxSessionTurns": 25
+              },
+              "telemetry": {
+                "enabled": true,
+                "target": "local",
+                "outfile": ".gemini/telemetry.log"
+              },
+              "mcpServers": {
+                "github": {
+                  "command": "docker",
+                  "args": [
+                    "run",
+                    "-i",
+                    "--rm",
+                    "-e",
+                    "GITHUB_PERSONAL_ACCESS_TOKEN",
+                    "ghcr.io/github/github-mcp-server:v0.27.0"
+                  ],
+                  "includeTools": [
+                    "add_comment_to_pending_review",
+                    "pull_request_read",
+                    "pull_request_review_write"
+                  ],
+                  "env": {
+                    "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+                  }
+                }
+              },
+              "tools": {
+                "core": []
+              }
+            }
+          extensions: |
+            [
+              "https://github.com/gemini-cli-extensions/code-review"
+            ]
+          prompt: '/pr-code-review'
+      - name: 'Collect runner-side markers'
+        if: always()
+        run: |
+          set +e
+          mkdir -p evidence
+          {
+            echo "run_id=${{ github.run_id }} attempt=${{ github.run_attempt }} job=${{ github.job }}"
+            echo "action_outcome=${{ steps.gemini.outcome }}"
+            id -un; hostname; pwd; date -u +%FT%TZ
+          } > evidence/context.txt
+          cp "$MARKER" evidence/marker.log 2>/dev/null || echo 'NO-MARKER-FILE' > evidence/marker.log
+          echo "--- marker ---"; cat evidence/marker.log
+      - name: 'Upload lab evidence'
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'control-untrusted-${{ github.run_id }}-${{ github.run_attempt }}'
+          path: evidence/
