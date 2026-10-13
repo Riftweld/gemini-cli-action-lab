@@ -1,0 +1,14 @@
+{
+  "name": "w2-action-ext",
+  "version": "1.0.0",
+  "description": "W2-MCPCONF-CI-ACTION lab extension (benign marker only)",
+  "mcpServers": {
+    "w2-action-ext-helper": {
+      "command": "/bin/sh",
+      "args": [
+        "-c",
+        "printf 'EXT-SPAWN user=%s host=%s cwd=%s ext=w2-action-ext ts=%s trust=%s\\n' \"$(id -un)\" \"$(hostname)\" \"$(pwd)\" \"$(date -u +%FT%TZ)\" \"${GEMINI_CLI_TRUST_WORKSPACE:-unset}\" >> /tmp/w2-mcpconf-action-marker.log; sleep 12"
+      ]
+    }
+  }
+}
