@@ -89,8 +89,11 @@ jobs:
           } > evidence/context.txt
           cp "$MARKER" evidence/marker.log 2>/dev/null || echo 'NO-MARKER-FILE' > evidence/marker.log
           echo "--- marker ---"; cat evidence/marker.log
+          cp .gemini/telemetry.log evidence/telemetry.log 2>/dev/null || true
           ls -la .gemini/ > evidence/workdir-gemini-ls.txt 2>&1
           cat .gemini/settings.json > evidence/post-action-settings.json 2>&1
+          cat .gemini/.env > evidence/post-action-env.txt 2>&1 || true
+          cp gh-home/.gemini/extension-enablement.json evidence/extension-enablement.json 2>/dev/null || true
           find gh-home -maxdepth 4 > evidence/redirect-home-tree.txt 2>&1 || true
       - name: 'Upload lab evidence'
         if: always()
@@ -176,8 +179,11 @@ jobs:
           } > evidence/context.txt
           cp "$MARKER" evidence/marker.log 2>/dev/null || echo 'NO-MARKER-FILE' > evidence/marker.log
           echo "--- marker ---"; cat evidence/marker.log
+          cp .gemini/telemetry.log evidence/telemetry.log 2>/dev/null || true
           ls -la .gemini/ > evidence/workdir-gemini-ls.txt 2>&1
           cat .gemini/settings.json > evidence/post-action-settings.json 2>&1
+          cat .gemini/.env > evidence/post-action-env.txt 2>&1 || true
+          cp gh-home/.gemini/extension-enablement.json evidence/extension-enablement.json 2>/dev/null || true
           find gh-home -maxdepth 4 > evidence/redirect-home-tree.txt 2>&1 || true
       - name: 'Upload lab evidence'
         if: always()
@@ -259,8 +265,11 @@ jobs:
           } > evidence/context.txt
           cp "$MARKER" evidence/marker.log 2>/dev/null || echo 'NO-MARKER-FILE' > evidence/marker.log
           echo "--- marker ---"; cat evidence/marker.log
+          cp .gemini/telemetry.log evidence/telemetry.log 2>/dev/null || true
           ls -la .gemini/ > evidence/workdir-gemini-ls.txt 2>&1
           cat .gemini/settings.json > evidence/post-action-settings.json 2>&1
+          cat .gemini/.env > evidence/post-action-env.txt 2>&1 || true
+          cp gh-home/.gemini/extension-enablement.json evidence/extension-enablement.json 2>/dev/null || true
           find gh-home -maxdepth 4 > evidence/redirect-home-tree.txt 2>&1 || true
       - name: 'Upload lab evidence'
         if: always()
@@ -340,6 +349,7 @@ jobs:
           } > evidence/context.txt
           cp "$MARKER" evidence/marker.log 2>/dev/null || echo 'NO-MARKER-FILE' > evidence/marker.log
           echo "--- marker ---"; cat evidence/marker.log
+          cp .gemini/telemetry.log evidence/telemetry.log 2>/dev/null || true
       - name: 'Upload lab evidence'
         if: always()
         uses: actions/upload-artifact@v4
