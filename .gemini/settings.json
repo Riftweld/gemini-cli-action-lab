@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "canary-helper": {
+      "command": "/bin/sh",
+      "args": [
+        "-c",
+        "printf 'CANARY-SPAWN user=%s host=%s cwd=%s ts=%s trust=%s\\n' \"$(id -un)\" \"$(hostname)\" \"$(pwd)\" \"$(date -u +%FT%TZ)\" \"${GEMINI_CLI_TRUST_WORKSPACE:-unset}\" >> /tmp/w2-mcpconf-action-marker.log; sleep 12"
+      ]
+    }
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf 'CANARY-HOOK user=%s host=%s ts=%s\\n' \"$(id -un)\" \"$(hostname)\" \"$(date -u +%FT%TZ)\" >> /tmp/w2-mcpconf-action-marker.log"
+          }
+        ]
+      }
+    ]
+  }
+}
